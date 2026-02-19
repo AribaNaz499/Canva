@@ -1,13 +1,21 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Text, Transformer } from 'react-konva';
+import { Text as KonvaText, Transformer } from 'react-konva';
 import { Html } from 'react-konva-utils';
 
 const EditableText = ({ el, isSelected, onSelect, onChange }) => {
   const shapeRef = useRef();
   const trRef = useRef();
   const [isEditing, setIsEditing] = useState(false);
+  const [tempText, setTempText] = useState(el.text);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
   
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   useEffect(() => {
     if (isSelected && trRef.current && !isEditing) {
       trRef.current.nodes([shapeRef.current]);
@@ -15,79 +23,87 @@ const EditableText = ({ el, isSelected, onSelect, onChange }) => {
     }
   }, [isSelected, isEditing]);
 
+  const handleSave = () => {
+    onChange({ text: tempText });
+    setIsEditing(false);
+  };
+
   return (
     <>
-      
-      <Text
+      <KonvaText
         ref={shapeRef}
         {...el}
-        visible={!isEditing} 
+        id={el.id}
+        visible={!(isEditing && isMobile)} // Mobile pe edit karte waqt canvas wala text chhupa do
         draggable={!isEditing}
         onClick={onSelect}
         onTap={onSelect}
-        onDblClick={() => setIsEditing(true)}
+        onDblClick={() => {
+          setTempText(el.text);
+          setIsEditing(true);
+        }}
         onDragEnd={(e) => {
           onChange({ x: e.target.x(), y: e.target.y() });
         }}
-        onTransformEnd={() => {
-          const node = shapeRef.current;
-          const scaleX = node.scaleX();
-          const scaleY = node.scaleY();
-          
-          node.scaleX(1);
-          node.scaleY(1);
-          
-          onChange({
-            x: node.x(),
-            y: node.y(),
-            width: Math.max(5, node.width() * scaleX),
-            fontSize: node.fontSize() * scaleY,
-          });
-        }}
       />
+
+      {isSelected && !isEditing && (
+        <Transformer ref={trRef} keepRatio={true} />
+      )}
 
       {isEditing && (
         <Html>
-          <textarea
-            value={el.text}
-            onChange={(e) => onChange({ text: e.target.value })}
-            onBlur={() => setIsEditing(false)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) setIsEditing(false);
-            }}
-            autoFocus
-            style={{
-              position: 'absolute',
-              top: `${el.y}px`,
-              left: `${el.x}px`,
-              width: `${shapeRef.current.width()}px`,
-              height: `${shapeRef.current.height()}px`,
-              fontSize: `${el.fontSize}px`,
-              color: el.fill,
-              background: 'none',
-              border: 'none',
-              outline: 'none',
-              resize: 'none',
-              padding: 0,
-              margin: 0,
-              lineHeight: 1,
-              fontFamily: 'sans-serif',
-            }}
-          />
+          {isMobile ? (
+            /* --- MOBILE VIEW: FULL MODAL --- */
+            <div style={{
+              position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+              backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center',
+              justifyContent: 'center', zIndex: 9999, pointerEvents: 'auto'
+            }}>
+              <div style={{
+                backgroundColor: 'white', padding: '20px', borderRadius: '16px',
+                width: '85%', maxWidth: '350px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)'
+              }}>
+                <h3 style={{ marginBottom: '10px', fontSize: '18px', fontFamily: 'sans-serif' }}>Edit Text</h3>
+                <textarea
+                  autoFocus
+                  value={tempText}
+                  onChange={(e) => setTempText(e.target.value)}
+                  style={{
+                    width: '100%', height: '100px', padding: '10px', borderRadius: '8px',
+                    border: '1px solid #ddd', fontSize: '16px', outline: 'none', marginBottom: '15px'
+                  }}
+                />
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button onClick={handleSave} style={{ flex: 1, padding: '12px', background: '#7c3aed', color: 'white', borderRadius: '8px', border: 'none', fontWeight: 'bold' }}>Apply</button>
+                  <button onClick={() => setIsEditing(false)} style={{ flex: 1, padding: '12px', background: '#f3f4f6', color: '#666', borderRadius: '8px', border: 'none' }}>Cancel</button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            /* --- DESKTOP VIEW: SIMPLE OVERLAY --- */
+            <textarea
+              autoFocus
+              value={tempText}
+              onChange={(e) => setTempText(e.target.value)}
+              onBlur={handleSave}
+              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) handleSave(); }}
+              style={{
+                position: 'absolute',
+                top: el.y - 5,
+                left: el.x - 5,
+                fontSize: el.fontSize + 'px',
+                width: 'auto',
+                minWidth: '100px',
+                background: 'white',
+                border: '2px solid #3b82f6',
+                outline: 'none',
+                padding: '4px',
+                zIndex: 1000
+              }}
+            />
+          )}
         </Html>
-      )}
-
-    
-      {isSelected && !isEditing && (
-        <Transformer
-          ref={trRef}
-          rotateEnabled={true}
-          enabledAnchors={['top-left', 'top-right', 'bottom-left', 'bottom-right']}
-          boundBoxFunc={(oldBox, newBox) => {
-            newBox.width = Math.max(30, newBox.width);
-            return newBox;
-          }}
-        />
       )}
     </>
   );

@@ -47,7 +47,7 @@ const CanvasAudioPlayer = ({ audioData, isSelected, onSelect, onChange, isPlayin
           shadowBlur={10}
           shadowOpacity={0.1}
           stroke={isSelected ? "#3b82f6" : "#e2e8f0"}
-          strokeWidth={2}
+          strokeWidth={2}  // border
         />
 
 
